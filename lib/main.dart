@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 void main() {
   runApp(const MyApp());
@@ -11,7 +12,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Pablo Therapy',
       theme: ThemeData(
-        primarySwatch: Colors.deepOrange,
+        useMaterial3: true,
         fontFamily: 'Geist',
       ),
       home: Scaffold(
@@ -27,10 +28,15 @@ class MyApp extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                SvgPicture.asset(
+                  'images/home.svg',
+                  width: 200,
+                  height: 200,
+                ),
                 Padding(
-                  padding: const EdgeInsets.all(30),
+                  padding: const EdgeInsets.all(31),
                   child: Builder(
-                    builder: (context) => ElevatedButton(
+                    builder: (context) => FilledButton(
                       child: const Text('Start my Therapy'),
                       onPressed: () => {
                         Navigator.push(
@@ -40,6 +46,9 @@ class MyApp extends StatelessWidget {
                           ),
                         ),
                       },
+                      style: ButtonStyle(
+                        backgroundColor: MaterialStatePropertyAll<Color>(const Color(0xFF1A1A1A)),
+                      ),
                     ),
                   ),
                 ),
@@ -61,8 +70,8 @@ class ImageSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Image.asset(
       image,
-      width: 600,
-      height: 240,
+      width: 601,
+      height: 241,
       fit: BoxFit.cover,
     );
   }

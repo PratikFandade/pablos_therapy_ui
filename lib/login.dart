@@ -5,15 +5,20 @@ class NameDialog extends StatefulWidget {
   const NameDialog({super.key});
 
   @override
-  _NameDialogState createState() => _NameDialogState();
+  NameDialogState createState() => NameDialogState();
 }
 
-class _NameDialogState extends State<NameDialog> {
-  final TextEditingController _nameController = TextEditingController(); // Controller to capture the text
+class NameDialogState extends State<NameDialog> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _ageController = TextEditingController();
+  String? _selectedGender;
+  final List<String> _genders = ['Male', 'Female', 'Other'];
+
+  final formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
-    _nameController.dispose(); // Dispose the controller when not needed
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -39,13 +44,72 @@ class _NameDialogState extends State<NameDialog> {
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 15),
-                SizedBox(
-                  width: 250,
-                  child: TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Enter Your Name',
-                    ),
+                Form(
+                  key: formKey,
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        width: 250,
+                        child: TextFormField(
+                          controller: _nameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Enter Your Name',
+                          ),
+                          validator: (value) {
+                            value = value?.trim() ?? '';
+                            if (value.isEmpty) {
+                              return 'Name is required';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: 250,
+                        child: TextFormField(
+                          controller: _ageController,
+                          decoration: const InputDecoration(
+                            labelText: 'Enter Your Age',
+                          ),
+                          validator: (value) {
+                            value = value?.trim() ?? '';
+                            if (value.isEmpty) {
+                              return 'Age is required';
+                            }
+                            if (int.tryParse(value) == null) {
+                              return 'Age must be a number';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: 250,
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedGender,
+                          decoration: const InputDecoration(
+                            labelText: 'Select Gender',
+                          ),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedGender = newValue;
+                            });
+                          },
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Gender is required';
+                            }
+                            return null;
+                          },
+                          items: _genders.map((String gender) {
+                            return DropdownMenuItem<String>(
+                              value: gender,
+                              child: Text(gender),
+                            );
+                          }).toList(),
+                        ),
+                      )
+                    ],
                   ),
                 ),
                 const SizedBox(height: 15),
@@ -55,13 +119,16 @@ class _NameDialogState extends State<NameDialog> {
                   ),
                   child: const Text('Start my Therapy'),
                   onPressed: () {
-                    String enteredName = _nameController.text;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => Therapy(name: enteredName),
-                      ),
-                    );
+                    if (formKey.currentState?.validate() ?? false) {
+                      String enteredName = _nameController.text.trim();
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => Therapy(name: enteredName),
+                        ),
+                      );
+                    }
                   },
                 ),
                 const SizedBox(height: 40),

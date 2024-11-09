@@ -1,5 +1,5 @@
-# Therapy AI App
-Welcome to the Therapy AI App — an interactive mobile app designed to provide mental wellness support through conversations with an AI therapist. This app aims to provide users with a supportive, non-judgmental space to talk through challenges, practice mindfulness, and receive advice on stress management, all powered by AI.
+# Pablo's Therapy App
+Welcome to the Pablo's Therapy App — an interactive mobile app designed to provide mental wellness support through conversations with an AI therapist. This app aims to provide users with a supportive, non-judgmental space to talk through challenges, practice mindfulness, and receive advice on stress management, all powered by AI.
 
 ## Features
 - **AI-Based Conversations**: Engage in meaningful conversations with an AI trained to offer empathetic responses, helping you process your thoughts and emotions.

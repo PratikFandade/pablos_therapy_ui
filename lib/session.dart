@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:rive/rive.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:logger/logger.dart';
 
 class Therapy extends StatefulWidget {
   final String name;
@@ -13,18 +14,20 @@ class Therapy extends StatefulWidget {
 }
 
 class TherapyState extends State<Therapy> {
-  final _scaleFactor = 0.5;
+  double _scaleFactor = 0.5;
   bool useMicInput = true;
   final myRecording = AudioRecorder();
   double volume = 0.0;
   double minVolume = -45.0;
   Timer? timer;
+  var logger = Logger();
 
   @override
   void initState() {
     super.initState();
     requestPermissionAndStartRecording();
   }
+
   Future<String> getFilePath() async {
     final directory = await getApplicationDocumentsDirectory();
     return '${directory.path}/myFile.m4a';
@@ -34,7 +37,7 @@ class TherapyState extends State<Therapy> {
     if (await myRecording.hasPermission()) {
       startRecording();
     } else {
-      print("Microphone Access is denied");
+      logger.e("Microphone Access is denied");
     }
   }
 
@@ -61,6 +64,7 @@ class TherapyState extends State<Therapy> {
     if (ampl.current > minVolume) {
       setState(() {
         volume = (ampl.current - minVolume) / minVolume;
+        _scaleFactor = 0.5 - (volume * 1.25);
       });
     }
   }

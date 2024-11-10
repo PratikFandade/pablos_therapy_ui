@@ -42,4 +42,17 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
+    <activity
+        android:name=".MainActivity"
+        android:launchMode="singleTask"
+        android:theme="@style/LaunchTheme"
+        android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|layoutDirection"
+        android:windowSoftInputMode="adjustResize">
+        <intent-filter android:label="flutter_todo">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="com.auth0.myapp" android:host="login-callback" />
+        </intent-filter>
+    </activity>
 </manifest>

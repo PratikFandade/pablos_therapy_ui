@@ -1,47 +1,59 @@
 PODS:
-  - Flutter (1.0.0)
-  - mic_stream (0.0.1):
+  - Auth0 (2.7.2):
+    - JWTDecode (~> 3.1)
+    - SimpleKeychain (~> 1.1)
+  - auth0_flutter (1.7.2):
+    - Auth0 (= 2.7.2)
     - Flutter
+    - FlutterMacOS
+    - JWTDecode (= 3.1.0)
+    - SimpleKeychain (= 1.1.0)
+  - Flutter (1.0.0)
+  - JWTDecode (3.1.0)
   - path_provider_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
-  - permission_handler_apple (9.3.0):
-    - Flutter
   - record_darwin (1.0.0):
     - Flutter
   - rive_common (0.0.1):
     - Flutter
+  - SimpleKeychain (1.1.0)
 
 DEPENDENCIES:
+  - auth0_flutter (from `.symlinks/plugins/auth0_flutter/darwin`)
   - Flutter (from `Flutter`)
-  - mic_stream (from `.symlinks/plugins/mic_stream/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
-  - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - record_darwin (from `.symlinks/plugins/record_darwin/ios`)
   - rive_common (from `.symlinks/plugins/rive_common/ios`)
 
+SPEC REPOS:
+  trunk:
+    - Auth0
+    - JWTDecode
+    - SimpleKeychain
+
 EXTERNAL SOURCES:
+  auth0_flutter:
+    :path: ".symlinks/plugins/auth0_flutter/darwin"
   Flutter:
     :path: Flutter
-  mic_stream:
-    :path: ".symlinks/plugins/mic_stream/ios"
   path_provider_foundation:
     :path: ".symlinks/plugins/path_provider_foundation/darwin"
-  permission_handler_apple:
-    :path: ".symlinks/plugins/permission_handler_apple/ios"
   record_darwin:
     :path: ".symlinks/plugins/record_darwin/ios"
   rive_common:
     :path: ".symlinks/plugins/rive_common/ios"
 
 SPEC CHECKSUMS:
+  Auth0: 28cb24cb19ebd51f0b07751f16d83b59f4019532
+  auth0_flutter: f085572268059bc194c7b023d7f432f5ebb72413
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
-  mic_stream: 28787bfcfcfc68e17fad15050baf5929f1d10901
+  JWTDecode: 3eaab1e06b6f4dcbdd6716aff09ba4c2104ca8b7
   path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
-  permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
   record_darwin: 3b1a8e7d5c0cbf45ad6165b4d83a6ca643d929c3
   rive_common: cbbac3192af00d7341f19dae2f26298e9e37d99e
+  SimpleKeychain: f8707c8e97b38c6a6e687b17732afc9bcef06439
 
-PODFILE CHECKSUM: 819463e6a0290f5a72f145ba7cde16e8b6ef0796
+PODFILE CHECKSUM: a57f30d18f102dd3ce366b1d62a55ecbef2158e5
 
 COCOAPODS: 1.15.2

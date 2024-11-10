@@ -44,6 +44,10 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>We need access to the microphone to visualize audio input.</string>
+  <string>We need access to the microphone to visualize audio input.</string>
+  <key>CFBundleURLSchemes</key>
+  <array>
+    <string>com.auth0.myapp</string> <!-- Replace with your custom URL scheme -->
+  </array>
 </dict>
 </plist>

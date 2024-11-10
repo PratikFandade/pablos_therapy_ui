@@ -4,11 +4,11 @@ import 'login.dart';
 import 'package:rive/rive.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const PablosTheraphy());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class PablosTheraphy extends StatelessWidget {
+  const PablosTheraphy({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +44,7 @@ class MyApp extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.all(31),
                     child: Builder(
-                      builder: (context) => const NameDialog(),
+                      builder: (context) => const Login(),
                     ),
                   ),
                 ],

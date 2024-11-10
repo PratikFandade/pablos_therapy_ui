@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'session.dart';
 
-class NameDialog extends StatefulWidget {
-  const NameDialog({super.key});
+class Login extends StatefulWidget {
+  const Login({super.key});
 
   @override
-  NameDialogState createState() => NameDialogState();
+  LoginState createState() => LoginState();
 }
 
-class NameDialogState extends State<NameDialog> {
+class LoginState extends State<Login> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
   String? _selectedGender;
@@ -125,7 +125,7 @@ class NameDialogState extends State<NameDialog> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => Therapy(name: enteredName),
+                          builder: (_) => Session(name: enteredName),
                         ),
                       );
                     }

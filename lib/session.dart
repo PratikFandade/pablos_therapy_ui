@@ -5,15 +5,15 @@ import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:logger/logger.dart';
 
-class Therapy extends StatefulWidget {
+class Session extends StatefulWidget {
   final String name;
-  const Therapy({super.key, required this.name});
+  const Session({super.key, required this.name});
 
   @override
-  TherapyState createState() => TherapyState();
+  SessionState createState() => SessionState();
 }
 
-class TherapyState extends State<Therapy> {
+class SessionState extends State<Session> {
   double _scaleFactor = 0.5;
   bool useMicInput = true;
   final myRecording = AudioRecorder();
@@ -85,7 +85,7 @@ class TherapyState extends State<Therapy> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: const Text('Therapy'),
+        title: const Text('Session'),
       ),
       body: Container(
         color: Colors.white,

@@ -16,6 +16,7 @@ dependencies:
   record: ^5.2.0
   path_provider: ^2.1.5
   logger: ^2.4.0
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:

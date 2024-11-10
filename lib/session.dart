@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rive/rive.dart';
 import 'package:record/record.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:logger/logger.dart';
 
@@ -16,7 +17,10 @@ class Session extends StatefulWidget {
 class SessionState extends State<Session> {
   double _scaleFactor = 0.5;
   bool useMicInput = true;
+  bool _isRecording = false;
+  bool _isPlaying = false;
   final myRecording = AudioRecorder();
+  final AudioPlayer _audioPlayer = AudioPlayer();
   double volume = 0.0;
   double minVolume = -45.0;
   Timer? timer;
@@ -25,7 +29,6 @@ class SessionState extends State<Session> {
   @override
   void initState() {
     super.initState();
-    requestPermissionAndStartRecording();
   }
 
   Future<String> getFilePath() async {
@@ -46,12 +49,46 @@ class SessionState extends State<Session> {
     if (await myRecording.hasPermission()) {
       if (!await myRecording.isRecording()) {
         await myRecording.start(const RecordConfig(), path: path);
+        setState(() {
+          _isRecording = true;
+        });
       }
       startTimer();
       return true;
     } else {
       return false;
     }
+  }
+
+  Future<void> stopRecording() async {
+    await myRecording.stop();
+    timer?.cancel();
+    setState(() {
+      _isRecording = false;
+    });
+  }
+
+  Future<void> playAudio() async {
+    final path = await getFilePath();
+    await _audioPlayer.play(DeviceFileSource(path));
+
+    setState(() {
+      _isPlaying = true;
+    });
+  }
+
+  Future<void> pauseAudio() async {
+    await _audioPlayer.pause();
+    setState(() {
+      _isPlaying = false;
+    });
+  }
+
+  Future<void> stopAudio() async {
+    await _audioPlayer.stop();
+    setState(() {
+      _isPlaying = false;
+    });
   }
 
   startTimer() async {
@@ -113,6 +150,14 @@ class SessionState extends State<Session> {
                 "VOLUME\n${volume0to(100)}",
                 textAlign: TextAlign.center,
               ),
+              ElevatedButton(
+                onPressed: _isRecording ? stopRecording : requestPermissionAndStartRecording,
+                child: Text(_isRecording ? 'Stop Streaming' : 'Start Streaming'),
+              ),
+              ElevatedButton(
+                onPressed: _isPlaying ? stopAudio : playAudio,
+                child: Text(_isPlaying ? 'Stop Playing' : 'Play'),
+              )
             ],
           ),
         ),
@@ -120,3 +165,4 @@ class SessionState extends State<Session> {
     );
   }
 }
+

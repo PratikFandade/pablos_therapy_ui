@@ -5,6 +5,7 @@ import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:logger/logger.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 class Session extends StatefulWidget {
   final String name;
@@ -19,16 +20,22 @@ class SessionState extends State<Session> {
   bool useMicInput = true;
   bool _isRecording = false;
   bool _isPlaying = false;
-  final myRecording = AudioRecorder();
+  final myRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
   double volume = 0.0;
   double minVolume = -45.0;
   Timer? timer;
   var logger = Logger();
+  WebSocketChannel? _channel;
 
   @override
   void initState() {
     super.initState();
+    _connectWebSocket();
+  }
+
+  void _connectWebSocket() {
+    _channel = WebSocketChannel.connect(Uri.parse('ws://localhost:8000/ws/chat'));
   }
 
   Future<String> getFilePath() async {
@@ -37,7 +44,7 @@ class SessionState extends State<Session> {
   }
 
   Future<void> requestPermissionAndStartRecording() async {
-    if (await myRecording.hasPermission()) {
+    if (await myRecorder.hasPermission()) {
       startRecording();
     } else {
       logger.e("Microphone Access is denied");
@@ -45,10 +52,20 @@ class SessionState extends State<Session> {
   }
 
   Future<bool> startRecording() async {
-    final path = await getFilePath();
-    if (await myRecording.hasPermission()) {
-      if (!await myRecording.isRecording()) {
-        await myRecording.start(const RecordConfig(), path: path);
+    if (await myRecorder.hasPermission()) {
+      if (!await myRecorder.isRecording()) {
+        await myRecorder
+        .startStream(RecordConfig(
+          encoder: AudioEncoder.pcm16bits,
+          sampleRate: 16000,
+          bitRate: 16000,
+          numChannels: 1
+        ))
+        .then((stream) => stream.listen((audioChunk) {
+          if (_channel != null) {
+            _channel?.sink.add(audioChunk);
+          }
+        }));
         setState(() {
           _isRecording = true;
         });
@@ -61,7 +78,7 @@ class SessionState extends State<Session> {
   }
 
   Future<void> stopRecording() async {
-    await myRecording.stop();
+    await myRecorder.stop();
     timer?.cancel();
     setState(() {
       _isRecording = false;
@@ -97,7 +114,7 @@ class SessionState extends State<Session> {
   }
 
   updateVolume() async {
-    Amplitude ampl = await myRecording.getAmplitude();
+    Amplitude ampl = await myRecorder.getAmplitude();
     if (ampl.current > minVolume) {
       setState(() {
         volume = (ampl.current - minVolume) / minVolume;
@@ -113,7 +130,7 @@ class SessionState extends State<Session> {
   @override
   void dispose() {
     timer?.cancel();
-    myRecording.stop();
+    myRecorder.stop();
     super.dispose();
   }
 
@@ -154,10 +171,10 @@ class SessionState extends State<Session> {
                 onPressed: _isRecording ? stopRecording : requestPermissionAndStartRecording,
                 child: Text(_isRecording ? 'Stop Streaming' : 'Start Streaming'),
               ),
-              ElevatedButton(
-                onPressed: _isPlaying ? stopAudio : playAudio,
-                child: Text(_isPlaying ? 'Stop Playing' : 'Play'),
-              )
+//              ElevatedButton(
+//                onPressed: _isPlaying ? stopAudio : playAudio,
+//                child: Text(_isPlaying ? 'Stop Playing' : 'Play'),
+//              )
             ],
           ),
         ),

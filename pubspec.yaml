@@ -17,6 +17,8 @@ dependencies:
   path_provider: ^2.1.5
   logger: ^2.4.0
   audioplayers: ^6.1.0
+  web_socket_channel: ^3.0.1
+  flutter_sound: ^9.16.3
 
 dev_dependencies:
   flutter_test:

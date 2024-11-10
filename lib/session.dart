@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:rive/rive.dart';
 import 'package:record/record.dart';
@@ -27,6 +29,7 @@ class SessionState extends State<Session> {
   Timer? timer;
   var logger = Logger();
   WebSocketChannel? _channel;
+  late File _audioFile;
 
   @override
   void initState() {
@@ -40,7 +43,7 @@ class SessionState extends State<Session> {
 
   Future<String> getFilePath() async {
     final directory = await getApplicationDocumentsDirectory();
-    return '${directory.path}/myFile.m4a';
+    return '${directory.path}/myFile.wav';
   }
 
   Future<void> requestPermissionAndStartRecording() async {
@@ -51,21 +54,64 @@ class SessionState extends State<Session> {
     }
   }
 
+  Uint8List convertPcmToWav(List<int> pcmData,
+      {int sampleRate = 44100, int numChannels = 1, int bitsPerSample = 16}) {
+    // Validate that pcmData values are in 16-bit range
+    for (int sample in pcmData) {
+      if (sample < -32768 || sample > 32767) {
+        throw ArgumentError("PCM data value out of range for 16-bit audio");
+      }
+    }
+
+    // Create a ByteData to write the WAV file
+    var wavHeaderSize = 44; // Standard WAV header size
+    var totalSize = wavHeaderSize + pcmData.length * 2;
+    var byteData = ByteData(totalSize);
+
+    // Write the RIFF header
+    byteData.setUint8(0, 'R'.codeUnitAt(0));
+    byteData.setUint8(1, 'I'.codeUnitAt(0));
+    byteData.setUint8(2, 'F'.codeUnitAt(0));
+    byteData.setUint8(3, 'F'.codeUnitAt(0));
+    byteData.setUint32(4, totalSize - 8, Endian.little);
+    byteData.setUint8(8, 'W'.codeUnitAt(0));
+    byteData.setUint8(9, 'A'.codeUnitAt(0));
+    byteData.setUint8(10, 'V'.codeUnitAt(0));
+    byteData.setUint8(11, 'E'.codeUnitAt(0));
+
+    // Write the fmt subchunk
+    byteData.setUint8(12, 'f'.codeUnitAt(0));
+    byteData.setUint8(13, 'm'.codeUnitAt(0));
+    byteData.setUint8(14, 't'.codeUnitAt(0));
+    byteData.setUint8(15, ' '.codeUnitAt(0));
+    byteData.setUint32(16, 16, Endian.little); // Subchunk size
+    byteData.setUint16(20, 1, Endian.little); // Audio format (1 = PCM)
+    byteData.setUint16(22, numChannels, Endian.little);
+    byteData.setUint32(24, sampleRate, Endian.little);
+    byteData.setUint32(28, sampleRate * numChannels * (bitsPerSample ~/ 8),
+        Endian.little); // Byte rate
+    byteData.setUint16(
+        32, numChannels * (bitsPerSample ~/ 8), Endian.little); // Block align
+    byteData.setUint16(34, bitsPerSample, Endian.little);
+
+    // Write the data subchunk
+    byteData.setUint8(36, 'd'.codeUnitAt(0));
+    byteData.setUint8(37, 'a'.codeUnitAt(0));
+    byteData.setUint8(38, 't'.codeUnitAt(0));
+    byteData.setUint8(39, 'a'.codeUnitAt(0));
+    byteData.setUint32(40, pcmData.length * 2, Endian.little);
+    for (int i = 0; i < pcmData.length; i++) {
+      byteData.setInt16(wavHeaderSize + i * 2, pcmData[i], Endian.little);
+    }
+
+    return byteData.buffer.asUint8List();
+  }
+
   Future<bool> startRecording() async {
+    final path = await getFilePath();
     if (await myRecorder.hasPermission()) {
       if (!await myRecorder.isRecording()) {
-        await myRecorder
-        .startStream(RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: 16000,
-          bitRate: 16000,
-          numChannels: 1
-        ))
-        .then((stream) => stream.listen((audioChunk) {
-          if (_channel != null) {
-            _channel?.sink.add(audioChunk);
-          }
-        }));
+        await myRecorder.start(RecordConfig(encoder: AudioEncoder.wav), path: path);
         setState(() {
           _isRecording = true;
         });
@@ -79,16 +125,47 @@ class SessionState extends State<Session> {
 
   Future<void> stopRecording() async {
     await myRecorder.stop();
+    final path = await getFilePath();
+    File file = File(path);
+    List<int> fileBytes = await file.readAsBytes();
+    _channel!.sink.add(fileBytes);
     timer?.cancel();
     setState(() {
       _isRecording = false;
     });
+    ListenWebSocket();
   }
 
-  Future<void> playAudio() async {
-    final path = await getFilePath();
-    await _audioPlayer.play(DeviceFileSource(path));
+  Future<void> ListenWebSocket() async {
+    _channel?.stream?.listen(
+      (data) {
+        if (data is Uint8List) {
+          // Write received binary data (WAV file) to a file
+          _writeToFile(data);
+        }
+      },
+      onError: (error) {
+        print('WebSocket Error: $error');
+      },
+      onDone: () {
+        print('WebSocket connection closed');
+      },
+    );
+  }
 
+  Future<void> _writeToFile(Uint8List data) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final filePath = '${directory.path}/received_audio.wav';
+
+    _audioFile = File(filePath);
+    await _audioFile.writeAsBytes(data);
+    print('File saved to $filePath');
+
+    _playAudio();
+  }
+
+  Future<void> _playAudio() async {
+    await _audioPlayer.play(DeviceFileSource(_audioFile.path));
     setState(() {
       _isPlaying = true;
     });
@@ -171,10 +248,6 @@ class SessionState extends State<Session> {
                 onPressed: _isRecording ? stopRecording : requestPermissionAndStartRecording,
                 child: Text(_isRecording ? 'Stop Streaming' : 'Start Streaming'),
               ),
-//              ElevatedButton(
-//                onPressed: _isPlaying ? stopAudio : playAudio,
-//                child: Text(_isPlaying ? 'Stop Playing' : 'Play'),
-//              )
             ],
           ),
         ),

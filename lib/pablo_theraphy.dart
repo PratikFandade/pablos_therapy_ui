@@ -1,0 +1,151 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:rive/rive.dart';
+import 'package:auth0_flutter/auth0_flutter.dart';
+import 'package:auth0_flutter/auth0_flutter_web.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+import 'user.dart';
+// import 'login.dart';
+import 'session.dart';
+
+class PablosTheraphyApp extends StatefulWidget {
+  final Auth0? auth0;
+  const PablosTheraphyApp({this.auth0, final Key? key}) : super(key: key);
+
+  @override
+  State<PablosTheraphyApp> createState() => _PablosTheraphyAppState();
+}
+
+class _PablosTheraphyAppState extends State<PablosTheraphyApp> {
+  UserProfile? _user;
+
+  late Auth0 auth0;
+  late Auth0Web auth0Web;
+
+  @override
+  void initState() {
+    super.initState();
+    auth0 = widget.auth0 ??
+        Auth0(dotenv.env['AUTH0_DOMAIN']!, dotenv.env['AUTH0_CLIENT_ID']!);
+    auth0Web =
+        Auth0Web(dotenv.env['AUTH0_DOMAIN']!, dotenv.env['AUTH0_CLIENT_ID']!);
+
+    if (kIsWeb) {
+      auth0Web.onLoad().then((final credentials) => setState(() {
+            _user = credentials?.user;
+          }));
+    }
+  }
+
+  Future<void> login() async {
+    try {
+      if (kIsWeb) {
+        return auth0Web.loginWithRedirect(redirectUrl: 'http://localhost:3000');
+      }
+
+      var credentials = await auth0
+          .webAuthentication(scheme: dotenv.env['AUTH0_CUSTOM_SCHEME'])
+          // Use a Universal Link callback URL on iOS 17.4+ / macOS 14.4+
+          // useHTTPS is ignored on Android
+          .login(useHTTPS: true);
+
+      setState(() {
+        _user = credentials.user;
+      });
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      if (kIsWeb) {
+        await auth0Web.logout(returnToUrl: 'http://localhost:3000');
+      } else {
+        await auth0
+            .webAuthentication(scheme: dotenv.env['AUTH0_CUSTOM_SCHEME'])
+            // Use a Universal Link logout URL on iOS 17.4+ / macOS 14.4+
+            // useHTTPS is ignored on Android
+            .logout(useHTTPS: true);
+        setState(() {
+          _user = null;
+        });
+      }
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Pablo Therapy',
+      theme: ThemeData(
+        useMaterial3: true,
+        fontFamily: 'Geist',
+      ),
+      home: Scaffold(
+        appBar: AppBar(
+          backgroundColor: const Color(0x00000000),
+          title: const Text(
+            'Pablo Therapy'
+          ),
+        ),
+        extendBodyBehindAppBar: true,
+        body: Stack(
+          children: [
+            const RiveAnimation.asset(
+              'images/background.riv',
+              fit: BoxFit.cover,
+            ),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SvgPicture.asset(
+                    'images/home.svg',
+                    width: 200,
+                    height: 200,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(31),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                      Expanded(
+                          child: Row(children: [
+                        _user != null
+                            ? Expanded(child: UserWidget(user: _user))
+                            : const Expanded(child: Therapy(name: 'Pratik'))
+                      ])),
+                      _user != null
+                          ? ElevatedButton(
+                              onPressed: logout,
+                              style: ButtonStyle(
+                                backgroundColor:
+                                    MaterialStateProperty.all<Color>(Colors.black),
+                              ),
+                              child: const Text('Logout'),
+                            )
+                          : ElevatedButton(
+                              onPressed: login,
+                              style: ButtonStyle(
+                                backgroundColor:
+                                    MaterialStateProperty.all<Color>(Colors.black),
+                              ),
+                              child: const Text('Login'),
+                            )
+                    ]),
+//                    Builder(
+//                      builder: (context) => const NameDialog(),
+//                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

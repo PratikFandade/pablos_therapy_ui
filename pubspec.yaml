@@ -17,6 +17,7 @@ dependencies:
   path_provider: ^2.1.5
   logger: ^2.4.0
   auth0_flutter: ^1.7.2
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:

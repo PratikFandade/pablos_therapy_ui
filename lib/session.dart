@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -19,26 +20,37 @@ class Session extends StatefulWidget {
 
 class SessionState extends State<Session> {
   double _scaleFactor = 0.5;
-  bool useMicInput = true;
   bool _isRecording = false;
-  bool _isPlaying = false;
   final myRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
   double volume = 0.0;
   double minVolume = -45.0;
   Timer? timer;
+  Timer? debounceTimer;
+  final debounceDuration = Duration(milliseconds: 300);
   var logger = Logger();
   WebSocketChannel? _channel;
   late File _audioFile;
+  Stream? broadcastStream;
+
+  double vadThreshold = -35.0;
+  bool isVoiceDetected = false;
+  List<double> recentAmplitudes = [];
+  final int maxSamples = 10;
+  final int detectionDuration = 200;
+  DateTime? speechStartTime;
 
   @override
   void initState() {
     super.initState();
     _connectWebSocket();
+    startTimer();
+    requestPermissionAndStartRecording();
   }
 
   void _connectWebSocket() {
     _channel = WebSocketChannel.connect(Uri.parse('ws://localhost:8000/ws/chat'));
+    broadcastStream = _channel?.stream.asBroadcastStream();
   }
 
   Future<String> getFilePath() async {
@@ -48,75 +60,24 @@ class SessionState extends State<Session> {
 
   Future<void> requestPermissionAndStartRecording() async {
     if (await myRecorder.hasPermission()) {
-      startRecording();
+      await startRecording();
     } else {
       logger.e("Microphone Access is denied");
     }
-  }
-
-  Uint8List convertPcmToWav(List<int> pcmData,
-      {int sampleRate = 44100, int numChannels = 1, int bitsPerSample = 16}) {
-    // Validate that pcmData values are in 16-bit range
-    for (int sample in pcmData) {
-      if (sample < -32768 || sample > 32767) {
-        throw ArgumentError("PCM data value out of range for 16-bit audio");
-      }
-    }
-
-    // Create a ByteData to write the WAV file
-    var wavHeaderSize = 44; // Standard WAV header size
-    var totalSize = wavHeaderSize + pcmData.length * 2;
-    var byteData = ByteData(totalSize);
-
-    // Write the RIFF header
-    byteData.setUint8(0, 'R'.codeUnitAt(0));
-    byteData.setUint8(1, 'I'.codeUnitAt(0));
-    byteData.setUint8(2, 'F'.codeUnitAt(0));
-    byteData.setUint8(3, 'F'.codeUnitAt(0));
-    byteData.setUint32(4, totalSize - 8, Endian.little);
-    byteData.setUint8(8, 'W'.codeUnitAt(0));
-    byteData.setUint8(9, 'A'.codeUnitAt(0));
-    byteData.setUint8(10, 'V'.codeUnitAt(0));
-    byteData.setUint8(11, 'E'.codeUnitAt(0));
-
-    // Write the fmt subchunk
-    byteData.setUint8(12, 'f'.codeUnitAt(0));
-    byteData.setUint8(13, 'm'.codeUnitAt(0));
-    byteData.setUint8(14, 't'.codeUnitAt(0));
-    byteData.setUint8(15, ' '.codeUnitAt(0));
-    byteData.setUint32(16, 16, Endian.little); // Subchunk size
-    byteData.setUint16(20, 1, Endian.little); // Audio format (1 = PCM)
-    byteData.setUint16(22, numChannels, Endian.little);
-    byteData.setUint32(24, sampleRate, Endian.little);
-    byteData.setUint32(28, sampleRate * numChannels * (bitsPerSample ~/ 8),
-        Endian.little); // Byte rate
-    byteData.setUint16(
-        32, numChannels * (bitsPerSample ~/ 8), Endian.little); // Block align
-    byteData.setUint16(34, bitsPerSample, Endian.little);
-
-    // Write the data subchunk
-    byteData.setUint8(36, 'd'.codeUnitAt(0));
-    byteData.setUint8(37, 'a'.codeUnitAt(0));
-    byteData.setUint8(38, 't'.codeUnitAt(0));
-    byteData.setUint8(39, 'a'.codeUnitAt(0));
-    byteData.setUint32(40, pcmData.length * 2, Endian.little);
-    for (int i = 0; i < pcmData.length; i++) {
-      byteData.setInt16(wavHeaderSize + i * 2, pcmData[i], Endian.little);
-    }
-
-    return byteData.buffer.asUint8List();
   }
 
   Future<bool> startRecording() async {
     final path = await getFilePath();
     if (await myRecorder.hasPermission()) {
       if (!await myRecorder.isRecording()) {
+        if(await File(path).exists()){
+          File(path).delete();
+        }
         await myRecorder.start(RecordConfig(encoder: AudioEncoder.wav), path: path);
         setState(() {
           _isRecording = true;
         });
       }
-      startTimer();
       return true;
     } else {
       return false;
@@ -129,18 +90,17 @@ class SessionState extends State<Session> {
     File file = File(path);
     List<int> fileBytes = await file.readAsBytes();
     _channel!.sink.add(fileBytes);
-    timer?.cancel();
     setState(() {
       _isRecording = false;
+      isVoiceDetected = false;
     });
-    ListenWebSocket();
+    listenWebSocket();
   }
 
-  Future<void> ListenWebSocket() async {
-    _channel?.stream?.listen(
+  Future<void> listenWebSocket() async {
+    broadcastStream?.listen(
       (data) {
         if (data is Uint8List) {
-          // Write received binary data (WAV file) to a file
           _writeToFile(data);
         }
       },
@@ -153,36 +113,34 @@ class SessionState extends State<Session> {
     );
   }
 
+  String generateRandomString(int length) {
+    const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    Random random = Random();
+    return List.generate(length, (index) {
+      int randomIndex = random.nextInt(characters.length);
+      return characters[randomIndex];
+    }).join();
+  }
+
   Future<void> _writeToFile(Uint8List data) async {
     final directory = await getApplicationDocumentsDirectory();
-    final filePath = '${directory.path}/received_audio.wav';
+    final filePath = '${directory.path}/${generateRandomString(10)}.wav';
 
     _audioFile = File(filePath);
     await _audioFile.writeAsBytes(data);
-    print('File saved to $filePath');
-
     _playAudio();
   }
 
   Future<void> _playAudio() async {
     await _audioPlayer.play(DeviceFileSource(_audioFile.path));
-    setState(() {
-      _isPlaying = true;
-    });
-  }
-
-  Future<void> pauseAudio() async {
-    await _audioPlayer.pause();
-    setState(() {
-      _isPlaying = false;
+    recentAmplitudes.clear();
+    _audioPlayer.onPlayerComplete.listen((event) {
+      requestPermissionAndStartRecording();
     });
   }
 
   Future<void> stopAudio() async {
     await _audioPlayer.stop();
-    setState(() {
-      _isPlaying = false;
-    });
   }
 
   startTimer() async {
@@ -198,6 +156,55 @@ class SessionState extends State<Session> {
         _scaleFactor = 0.5 - (volume * 1.25);
       });
     }
+    
+    updateThreshold(ampl.current);
+
+    if (ampl.current > vadThreshold) {
+      speechStartTime ??= DateTime.now();
+
+      if (DateTime.now().difference(speechStartTime!) >= Duration(milliseconds: detectionDuration) && !isVoiceDetected) {
+        if (debounceTimer?.isActive ?? false) debounceTimer!.cancel();
+
+        debounceTimer = Timer(debounceDuration, () async {
+          isVoiceDetected = true;
+          await requestPermissionAndStartRecording();
+        });
+      }
+    } else {
+      speechStartTime = null;
+      
+      if (isVoiceDetected) {
+        if (debounceTimer?.isActive ?? false) debounceTimer!.cancel();
+
+        debounceTimer = Timer(debounceDuration, () async {
+          isVoiceDetected = false;
+          await stopRecording();
+        });
+      }
+    }
+  }
+
+  void updateThreshold(double newAmplitude) {
+    const double multiplier = 0.075;
+
+    // Add the new amplitude and ensure the list size does not exceed maxSamples
+    recentAmplitudes.add(newAmplitude);
+    if (recentAmplitudes.length > maxSamples) {
+      recentAmplitudes.removeAt(0); // Remove the oldest element if size exceeds maxSamples
+    }
+
+    // Calculate threshold only when recentAmplitudes is full
+    if (recentAmplitudes.length == maxSamples) {
+      // Calculate the mean and standard deviation of recent amplitudes
+      double mean = recentAmplitudes.reduce((a, b) => a + b) / recentAmplitudes.length;
+      double variance = recentAmplitudes
+          .map((value) => (value - mean) * (value - mean))
+          .reduce((a, b) => a + b) / recentAmplitudes.length;
+      double stddev = sqrt(variance);
+
+      // Update the adaptive threshold
+      vadThreshold = mean - (multiplier * stddev);
+    }
   }
 
   int volume0to(int maxVolumeToDisplay) {
@@ -207,6 +214,7 @@ class SessionState extends State<Session> {
   @override
   void dispose() {
     timer?.cancel();
+    debounceTimer?.cancel();
     myRecorder.stop();
     super.dispose();
   }
@@ -231,18 +239,6 @@ class SessionState extends State<Session> {
                   height: 300,
                   child: RiveAnimation.asset('images/pablo.riv'),
                 ),
-              ),
-              Text(
-                'Ye Sab Kuch Nai Hota h ${widget.name}!',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              Text(
-                'Padhle Chutiye! 😒',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              Text(
-                "VOLUME\n${volume0to(100)}",
-                textAlign: TextAlign.center,
               ),
               ElevatedButton(
                 onPressed: _isRecording ? stopRecording : requestPermissionAndStartRecording,
